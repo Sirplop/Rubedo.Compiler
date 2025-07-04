@@ -45,7 +45,7 @@ namespace Rubedo.Compiler.ContentBuilders
             Program.Logger.Info($"Starting content build from->to:\n{spacer}'{SourceDirectory}'\n{spacer}'{target}'");
         }
 
-        public void Build()
+        public int Build()
         {
             Stopwatch sw = Stopwatch.StartNew();
 
@@ -53,20 +53,21 @@ namespace Rubedo.Compiler.ContentBuilders
             if (code > ErrorCodes.END_OF_NON_ERRORS)
             {
                 Program.Logger.Error($"Error code {code}. Aborting build.");
-                return;
+                return code;
             }
             BuildDirectories();
             code = BuildMaps();
             if (code > ErrorCodes.END_OF_NON_ERRORS)
             {
                 Program.Logger.Error($"Error code {code}. Aborting build.");
-                return;
+                return code;
             }
             BuildNonMapped();
             RemoveDeletedFiles();
 
             sw.Stop();
             Program.Logger.Info($"Completed build in {sw.Elapsed.TotalSeconds} seconds.");
+            return ErrorCodes.NONE;
         }
 
         private int GenerateMappings()

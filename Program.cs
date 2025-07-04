@@ -33,8 +33,9 @@ class Program
         SetupLogger();
 
         Builder builder = new Builder(sourceDirectory, targetDirectory, textures);
-        builder.Build();
+        int endCode = builder.Build();
         
+        System.Environment.Exit(endCode);
     }
 
     /// <summary>
