@@ -1,6 +1,7 @@
 ﻿using Rubedo.Compiler.ContentBuilders.SpriteBuilder;
 using Rubedo.Compiler.Util;
 using Rubedo.Lib.Extensions;
+using System.Diagnostics;
 
 namespace Rubedo.Compiler.ContentBuilders
 {
@@ -46,6 +47,8 @@ namespace Rubedo.Compiler.ContentBuilders
 
         public void Build()
         {
+            Stopwatch sw = Stopwatch.StartNew();
+
             int code = GenerateMappings();
             if (code > ErrorCodes.END_OF_NON_ERRORS)
             {
@@ -61,6 +64,9 @@ namespace Rubedo.Compiler.ContentBuilders
             }
             BuildNonMapped();
             RemoveDeletedFiles();
+
+            sw.Stop();
+            Program.Logger.Info($"Completed build in {sw.Elapsed.TotalSeconds} seconds.");
         }
 
         private int GenerateMappings()
@@ -159,11 +165,13 @@ namespace Rubedo.Compiler.ContentBuilders
         }
         private void RemoveDeletedFiles()
         {
+            Program.Logger.Info("Removing old files not present in the new build...");
             List<RelativeDirectory> outputDirs = new List<RelativeDirectory>();
 
             RelativeDirectory baseDirectoryInfo = new RelativeDirectory(TargetDirectory, TargetDirectory, false);
             outputDirs.Add(baseDirectoryInfo);
 
+            int removed = 0;
             for (int i = 0; i < outputDirs.Count; i++)
             { //creates list of all directories.
                 RelativeDirectory info = outputDirs[i];
@@ -173,6 +181,7 @@ namespace Rubedo.Compiler.ContentBuilders
 
                 if (touchedIndex == -1)
                 { //directory not touched! Delete and continue.
+                    removed++;
                     info.directory.Delete(true);
                     continue;
                 }
@@ -185,6 +194,7 @@ namespace Rubedo.Compiler.ContentBuilders
                     if (touchedIndex == -1)
                     {
                         File.Delete(TargetDirectory + "\\" + path);
+                        removed++;
                     }
                     else
                     {
@@ -197,6 +207,7 @@ namespace Rubedo.Compiler.ContentBuilders
                     outputDirs.Add(new RelativeDirectory(dir.FullName, TargetDirectory, false));
                 }
             }
+            Program.Logger.Info($"Removed {removed} old {(removed == 1 ? "file" : "files")}.");
         }
     }
 }

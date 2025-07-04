@@ -74,6 +74,8 @@ namespace Rubedo.Compiler.ContentBuilders.SpriteBuilder
 
             (string name, List<RelativeDirectory> mappedDirectories) = builder.directoryMap[currentDirectory];
 
+            Program.Logger.Info("Building sprite atlas: " + currentDirectory.relativePath + "\\" + name);
+
             RelativeDirectory outputDir = new RelativeDirectory(currentDirectory.relativePath, builder.TargetDirectory, true);
 
             string atlasName = "\\" + name + ".png";
@@ -82,7 +84,10 @@ namespace Rubedo.Compiler.ContentBuilders.SpriteBuilder
             builder.touchedPaths.Add(outputDir.relativePath + mapName);
 
             if (!ShouldUpdate(builder, null, currentDirectory))
+            {
+                Program.Logger.Info("Sprite atlas already up to date.");
                 return ErrorCodes.SKIPPED; //no need to update.
+            }
 
             TexturePacker.Config packerConfig = new TexturePacker.Config();
 
@@ -101,7 +106,9 @@ namespace Rubedo.Compiler.ContentBuilders.SpriteBuilder
             }
             packerConfig.InputPaths = inputPaths;
 
+            Program.Logger.Info("Generating atlas...");
             TexturePacker.Generate(packerConfig);
+            Program.Logger.Info("Atlas generated.");
             return ErrorCodes.NONE;
         }
 
@@ -115,17 +122,31 @@ namespace Rubedo.Compiler.ContentBuilders.SpriteBuilder
                 return true; //no existing atlas, make it happen!
 
             bool needsUpdate = false;
+            int includedFiles = 0;
             foreach (RelativeDirectory dir in mappedDirectories)
             {
                 DirectoryInfo dirInfo = dir.directory;
                 foreach (FileInfo file in dirInfo.GetFiles("*.png"))
                 {
+                    includedFiles++;
                     builder.excludedFiles.Add(file.FullName);
                     if (file.LastWriteTimeUtc > outputMap.LastWriteTimeUtc)
                         needsUpdate = true;
                 }
             }
-            return needsUpdate;
+            if (needsUpdate)
+                return true;
+
+            int lineCount = 0;
+            using (var sr = new StreamReader(outputMap.FullName))
+            {
+                while (!String.IsNullOrEmpty(sr.ReadLine()))
+                    lineCount++;
+            }
+            if (lineCount != includedFiles)
+                return true; //either new files, or removed files, but something has changed!
+
+            return false;
         }
 
     }
