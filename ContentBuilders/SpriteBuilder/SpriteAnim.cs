@@ -57,17 +57,26 @@ public class SpriteAnim : IBuildFile
             }
             builder.touchedPaths.Add(outputDir.relativePath + "\\" + file.Name);
 
-            if (!ShouldUpdate(builder, new FileInfo[] { file, atlasPath == null ? new FileInfo(outputDir.directory.FullName +
-                "\\" + Path.GetFileNameWithoutExtension(file.Name) + FileExtensions.ATLAS_MAP) : atlasPath }, currentDirectory))
+            int updateCode = ShouldUpdate(builder, new FileInfo[] { file, atlasPath == null ? new FileInfo(outputDir.directory.FullName +
+                "\\" + Path.GetFileNameWithoutExtension(file.Name) + FileExtensions.ATLAS_MAP) : atlasPath }, currentDirectory);
+
+            if (updateCode == ErrorCodes.SKIPPED)
             {
                 Program.Logger.Info("Sprite animation already up to date.");
                 continue;
             }
-
-            JsonNode nodeObj = JsonNode.Parse(File.ReadAllText(file.FullName));
-            if (nodeObj == null)
+            else if (updateCode > ErrorCodes.END_OF_NON_ERRORS)
             {
-                Throw(outputDir + "\\" + file.Name);
+                return updateCode;
+            }
+
+            JsonNode nodeObj;
+            try
+            {
+                nodeObj = JsonNode.Parse(File.ReadAllText(file.FullName), documentOptions: new JsonDocumentOptions() { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip });
+            } catch (Exception e)
+            {
+                Throw(outputDir + "\\" + file.Name, e);
                 return ErrorCodes.BAD_JSON;
             }
             JsonObject origObj = nodeObj.AsObject();
@@ -127,29 +136,34 @@ public class SpriteAnim : IBuildFile
         return ErrorCodes.NONE;
     }
 
-    private static void Throw(string path)
+    private static void Throw(string path, Exception error = null)
     {
         Program.Logger.Error($"Malformed JSON spriteanim at '{path}'! Go fix it.");
+        if (error != null)
+            Program.Logger.Error(error.Message);
     }
 
-    public bool ShouldUpdate(Builder builder, FileInfo[] relevantFiles, RelativeDirectory currentDirectory)
+    public int ShouldUpdate(Builder builder, FileInfo[] relevantFiles, RelativeDirectory currentDirectory)
     {
         //output directory should always exist.
         RelativeDirectory outputDir = new RelativeDirectory(currentDirectory.relativePath, builder.TargetDirectory, true);
         FileInfo spriteAnimFile = relevantFiles[0];
         FileInfo outputFile = new FileInfo(outputDir.directory.FullName + "\\" + spriteAnimFile.Name);
         if (!outputFile.Exists || outputFile.LastWriteTimeUtc < spriteAnimFile.LastWriteTimeUtc)
-            return true; //sprite animation file has updated!
+            return ErrorCodes.NONE; //sprite animation file has updated!
 
         FileInfo atlasFile = relevantFiles[1]; //target atlasmap file. (cannot target png because there might be multiple!!!)
         if (!atlasFile.Exists)
-            return true; //atlas doesn't exist, needs to be created!
+            return ErrorCodes.NONE; //atlas doesn't exist, needs to be created!
 
-        JsonNode nodeObj = JsonNode.Parse(File.ReadAllText(spriteAnimFile.FullName));
-        if (nodeObj == null)
+        JsonNode nodeObj;
+        try
         {
-            Throw(currentDirectory + "\\" + spriteAnimFile.Name);
-            return false; //broken json
+            nodeObj = JsonNode.Parse(File.ReadAllText(spriteAnimFile.FullName), documentOptions: new JsonDocumentOptions() { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip });
+        } catch (Exception e)
+        {
+            Throw(currentDirectory + "\\" + spriteAnimFile.Name, e);
+            return ErrorCodes.BAD_JSON; //broken json
         }
         JsonObject origObj = nodeObj.AsObject();
 
@@ -163,7 +177,7 @@ public class SpriteAnim : IBuildFile
                 if (!frame.TryGetPropertyValue("name", out JsonNode val))
                 {
                     Throw(currentDirectory + "\\" + spriteAnimFile.Name);
-                    return false;
+                    return ErrorCodes.BAD_JSON;
                 }
                 FileInfo inputFrame = new FileInfo(currentDirectory.directory + "\\" + val.ToString());
                 builder.excludedFiles.Add(inputFrame.FullName);
@@ -172,6 +186,6 @@ public class SpriteAnim : IBuildFile
             }
         }
 
-        return needsUpdate;
+        return needsUpdate ? 0 : 1;
     }
 }

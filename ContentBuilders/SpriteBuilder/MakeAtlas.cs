@@ -83,11 +83,15 @@ namespace Rubedo.Compiler.ContentBuilders.SpriteBuilder
             builder.touchedPaths.Add(outputDir.relativePath + atlasName);
             builder.touchedPaths.Add(outputDir.relativePath + mapName);
 
-            if (!ShouldUpdate(builder, null, currentDirectory))
+            int updateCode = ShouldUpdate(builder, null, currentDirectory);
+
+            if (updateCode == ErrorCodes.SKIPPED)
             {
                 Program.Logger.Info("Sprite atlas already up to date.");
-                return ErrorCodes.SKIPPED; //no need to update.
+                return updateCode; //no need to update.
             }
+            else if (updateCode > ErrorCodes.END_OF_NON_ERRORS)
+                return updateCode;
 
             TexturePacker.Config packerConfig = new TexturePacker.Config();
 
@@ -113,13 +117,13 @@ namespace Rubedo.Compiler.ContentBuilders.SpriteBuilder
         }
 
 
-        public bool ShouldUpdate(Builder builder, FileInfo[] relevantFiles, RelativeDirectory currentDirectory)
+        public int ShouldUpdate(Builder builder, FileInfo[] relevantFiles, RelativeDirectory currentDirectory)
         {
             (string name, List<RelativeDirectory> mappedDirectories) = builder.directoryMap[currentDirectory];
             RelativeDirectory outputDir = new RelativeDirectory(currentDirectory.relativePath, builder.TargetDirectory, true);
             FileInfo outputMap = new FileInfo(outputDir.directory + "\\" + name + FileExtensions.ATLAS_MAP);
             if (!outputMap.Exists)
-                return true; //no existing atlas, make it happen!
+                return ErrorCodes.NONE; //no existing atlas, make it happen!
 
             bool needsUpdate = false;
             int includedFiles = 0;
@@ -135,7 +139,7 @@ namespace Rubedo.Compiler.ContentBuilders.SpriteBuilder
                 }
             }
             if (needsUpdate)
-                return true;
+                return ErrorCodes.NONE;
 
             int lineCount = 0;
             using (var sr = new StreamReader(outputMap.FullName))
@@ -144,9 +148,9 @@ namespace Rubedo.Compiler.ContentBuilders.SpriteBuilder
                     lineCount++;
             }
             if (lineCount != includedFiles)
-                return true; //either new files, or removed files, but something has changed!
+                return ErrorCodes.NONE; //either new files, or removed files, but something has changed!
 
-            return false;
+            return ErrorCodes.SKIPPED;
         }
 
     }

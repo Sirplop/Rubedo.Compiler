@@ -9,6 +9,6 @@ namespace Rubedo.Compiler.ContentBuilders
     public interface IBuildFile
     {
         int BuildMap(Builder builder, RelativeDirectory currentDirectory);
-        bool ShouldUpdate(Builder builder, FileInfo[] relevantFiles, RelativeDirectory currentDirectory);
+        int ShouldUpdate(Builder builder, FileInfo[] relevantFiles, RelativeDirectory currentDirectory);
     }
 }
