@@ -139,7 +139,6 @@ namespace Rubedo.Compiler.ContentBuilders
         {
             Program.Logger.Info("Building non-mapped files...");
             int included = 0, excluded = 0;
-            int sourceLen = SourceDirectory.Length;
             for (int i = 0; i < directories.Count; i++)
             {
                 DirectoryInfo dir = directories[i];
@@ -149,10 +148,11 @@ namespace Rubedo.Compiler.ContentBuilders
                     FileInfo file = files[j];
                     if (excludedFiles.Contains(file.FullName))
                         continue;
+                    string relFile = Path.GetRelativePath(SourceDirectory, file.FullName);
+                    touchedPaths.Add(relFile);
 
-                    touchedPaths.Add(Path.GetRelativePath(SourceDirectory, file.FullName));
-
-                    FileInfo output = new FileInfo(file.FullName.Replace(SourceDirectory, TargetDirectory));
+                    FileInfo output = new FileInfo(TargetDirectory + "\\" + relFile);
+                    Program.Logger.Info(output.FullName);
                     if (!output.Exists || output.LastWriteTimeUtc.Ticks < file.LastWriteTimeUtc.Ticks)
                     {
                         file.CopyTo(output.FullName, true);

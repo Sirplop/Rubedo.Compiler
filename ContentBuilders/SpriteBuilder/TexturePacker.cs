@@ -35,7 +35,7 @@ public static class TexturePacker
                 rect = Trim(texture);
             else
                 rect = new SKRect(0, 0, texture.Width, texture.Height);
-            rects.Add(new SRect(texture, config.Padding, rect));
+            rects.Add(new SRect(texture, config.InputPaths[i], config.Padding, rect));
         }
         rects.Sort((a, b) => a.Area.CompareTo(b.Area));
 
@@ -69,8 +69,8 @@ public static class TexturePacker
 
             int pivotX = Lib.Math.CeilToInt(0.5f * rect.SpriteWidth - rect.rect.Left);
             int pivotY = Lib.Math.CeilToInt(0.5f * rect.SpriteHeight - rect.rect.Top);
-            atlasMap.Append($"{Path.GetFileName(config.InputPaths[i])}\t{sheet}\t{rect.x}\t" +
-                $"{rect.y}\t{rect.SpriteWidth}\t{rect.SpriteHeight}\t{pivotX}\t{pivotY}\n");
+            atlasMap.Append($"{Path.GetFileName(rect.spritePath)},{sheet},{rect.x}," +
+                $"{rect.y},{rect.SpriteWidth},{rect.SpriteHeight},{pivotX},{pivotY}\n");
 
             rect.sprite.Dispose();
         }
@@ -124,17 +124,19 @@ public static class TexturePacker
     public class SRect
     {
         public SKBitmap sprite;
+        public string spritePath;
         public int x, y, paddedAreaWidth, paddedAreaHeight;
         public SKRect rect;
 
-        public SRect(SKBitmap sprite, int padding, SKRect rect)
+        public SRect(SKBitmap sprite, string spritePath, int padding, SKRect rect)
         {
             this.sprite = sprite;
+            this.spritePath = spritePath;
             x = 0;
             y = 0;
             this.rect = rect;
-            paddedAreaWidth = SpriteWidth + padding * 2;     // pixel padding on all sides.
-            paddedAreaHeight = SpriteHeight + padding * 2;
+            paddedAreaWidth = SpriteWidth + padding;     // pixel padding on bottom and right
+            paddedAreaHeight = SpriteHeight + padding;   // all rects have same padding, so they share.
         }
 
         public int SpriteWidth => (int)(rect.Right - rect.Left);

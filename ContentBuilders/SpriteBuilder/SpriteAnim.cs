@@ -1,8 +1,5 @@
-﻿using Rubedo;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using System.Text.Json;
-using Rubedo.Compiler.ContentBuilders;
-using Rubedo.Compiler;
 using Rubedo.Compiler.Util;
 
 namespace Rubedo.Compiler.ContentBuilders.SpriteBuilder;
@@ -12,6 +9,14 @@ namespace Rubedo.Compiler.ContentBuilders.SpriteBuilder;
 /// </summary>
 public class SpriteAnim : IBuildFile
 {
+    private JsonSerializerOptions _jsonOptions;
+
+    public SpriteAnim()
+    {
+        _jsonOptions = new JsonSerializerOptions(JsonSerializerOptions.Default);
+        _jsonOptions.WriteIndented = true;
+    }
+
     public int BuildMap(Builder builder, RelativeDirectory currentDirectory)
     {
         string directoryPath = currentDirectory.relativePath;
@@ -25,6 +30,7 @@ public class SpriteAnim : IBuildFile
 
         bool contained = false;
         FileInfo atlasPath = null;
+        string relativeAtlasPath = string.Empty;
         foreach (RelativeDirectory path in builder.directoryMap.Keys)
         {
             if (directoryPath.StartsWith(path.relativePath))
@@ -39,6 +45,7 @@ public class SpriteAnim : IBuildFile
                     return ErrorCodes.MISSING_FILE;
                 }
                 atlasPath = atlas[0];
+                relativeAtlasPath = path.relativePath + Path.GetFileNameWithoutExtension(atlasPath.Name);
                 break;
             }
         }
@@ -123,13 +130,32 @@ public class SpriteAnim : IBuildFile
                 Program.Logger.Info("Generating atlas...");
                 TexturePacker.Generate(packerConfig);
                 atlasPath = new FileInfo(packerConfig.OutputMapFile);
+                relativeAtlasPath = outputDir.relativePath + "\\" + Path.GetFileNameWithoutExtension(atlasPath.Name);
                 Program.Logger.Info("Atlas generated.");
             }
 
-            origObj.AsObject().Add("atlas", JsonValue.Create(Path.GetRelativePath(builder.TargetDirectory, Path.GetRelativePath(builder.TargetDirectory, atlasPath.FullName))));
+            origObj.AsObject().Add("atlas", JsonValue.Create(relativeAtlasPath.Substring(builder.TexturesDirectory.Length + 1)));
+
+            //time to convert file names into indices into the atlas.
+            AtlasReader atlas = new AtlasReader(atlasPath);
+            if (origObj.TryGetPropertyValue("frames", out JsonNode array))
+            {
+                JsonArray frameArray = array.AsArray();
+                foreach (JsonNode node in frameArray)
+                {
+                    JsonObject frame = node.AsObject();
+                    if (!frame.TryGetPropertyValue("name", out JsonNode val))
+                    {
+                        Throw(outputDir + "\\" + file.Name);
+                        return ErrorCodes.BAD_JSON;
+                    }
+                    string frameName = val.GetValue<string>();
+                    val.ReplaceWith(atlas.nameToIndexMap[frameName]);
+                }
+            }
 
             //save animation file
-            string output = JsonSerializer.Serialize(origObj);
+            string output = JsonSerializer.Serialize(origObj, _jsonOptions);
             File.WriteAllText(outputDir.directory.FullName + "\\" + file.Name, output);
             Program.Logger.Info("Sprite animation built.");
         }
@@ -186,6 +212,6 @@ public class SpriteAnim : IBuildFile
             }
         }
 
-        return needsUpdate ? 0 : 1;
+        return needsUpdate ? ErrorCodes.NONE : ErrorCodes.SKIPPED;
     }
 }

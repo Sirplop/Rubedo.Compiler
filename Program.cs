@@ -34,7 +34,9 @@ class Program
 
         Builder builder = new Builder(sourceDirectory, targetDirectory, textures);
         int endCode = builder.Build();
-        
+
+        NLog.LogManager.Flush();
+        NLog.LogManager.Shutdown();
         System.Environment.Exit(endCode);
     }
 
@@ -49,7 +51,7 @@ class Program
         SimpleLayout layout = new SimpleLayout("[${longdate}] [${level:uppercase=true}] ${literal:text=\\:} ${message:withexception=true}");
 
         // Targets where to log to: File and Console
-        //FileTarget logfile = new NLog.Targets.FileTarget("logfile") { FileName = "gamelog.txt" };
+        FileTarget logfile = new NLog.Targets.FileTarget("logfile") { FileName = "compilerlog.txt" };
         ConsoleTarget logconsole = new NLog.Targets.ConsoleTarget("logconsole");
         DebuggerTarget logDebugConsole = new NLog.Targets.DebuggerTarget("debugconsole");
         logconsole.Layout = layout;
@@ -59,7 +61,7 @@ class Program
         config.AddRule(LogLevel.Debug, LogLevel.Fatal, logconsole);
         config.AddRule(LogLevel.Debug, LogLevel.Fatal, logDebugConsole);
 
-        //config.AddRule(LogLevel.Debug, LogLevel.Fatal, logfile);
+        config.AddRule(LogLevel.Debug, LogLevel.Fatal, logfile);
 
         // Apply config           
         NLog.LogManager.Configuration = config;
