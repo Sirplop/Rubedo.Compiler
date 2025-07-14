@@ -20,6 +20,11 @@ namespace Rubedo.Compiler.Util
             }
         }
 
+        public bool IsChildOf(RelativeDirectory parent)
+        {
+            return relativePath.StartsWith(parent.relativePath);
+        }
+
         public override string ToString()
         {
             return relativePath;

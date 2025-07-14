@@ -22,16 +22,23 @@ namespace Rubedo.Compiler.ContentBuilders
         public List<DirectoryInfo> directories = new List<DirectoryInfo>();
         public HashSet<string> excludedFiles = new HashSet<string>();
 
+        /// <summary>
+        /// The virtual file map represents files of type KEY and their (path), and (how to get their data)
+        /// </summary>
+        public Dictionary<string, Dictionary<RelativeDirectory, List<VirtualFile<object>>>> virtualFileMap = new Dictionary<string, Dictionary<RelativeDirectory, List<VirtualFile<object>>>>();
+
         public List<string> touchedPaths = new List<string>();
 
         public List<IMapFile> Mappers { get; private set; } = new List<IMapFile>()
         {
+            new AsepriteLoader(),
             new MakeAtlas()
         };
         public List<IBuildFile> Builders { get; private set; } = new List<IBuildFile>()
         {
             new MakeAtlas(),
-            new SpriteAnim()
+            new SpriteAnim(),
+            new AsepriteLoader()
         };
 
         public Builder(string source, string target, string textures)
@@ -77,6 +84,7 @@ namespace Rubedo.Compiler.ContentBuilders
             directories.Clear();
             excludedFiles.Clear();
             touchedPaths.Clear();
+            virtualFileMap.Clear();
 
             touchedPaths.Add("Fonts"); //default font in rubedo.
             touchedPaths.Add("Fonts\\Consolas.ttf"); //default font in rubedo.
@@ -152,7 +160,7 @@ namespace Rubedo.Compiler.ContentBuilders
                     touchedPaths.Add(relFile);
 
                     FileInfo output = new FileInfo(TargetDirectory + "\\" + relFile);
-                    Program.Logger.Info(output.FullName);
+                    Program.Logger.Info(relFile);
                     if (!output.Exists || output.LastWriteTimeUtc.Ticks < file.LastWriteTimeUtc.Ticks)
                     {
                         file.CopyTo(output.FullName, true);

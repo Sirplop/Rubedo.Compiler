@@ -214,4 +214,33 @@ public class SpriteAnim : IBuildFile
 
         return needsUpdate ? ErrorCodes.NONE : ErrorCodes.SKIPPED;
     }
+
+
+    public static JsonObject CreateSpriteAnimJson(string name, bool loops, bool pingpong, bool reversed, List<(int, int)> frames, string? atlas)
+    {
+        JsonArray frameArray = new JsonArray();
+        for (int i = 0; i < frames.Count; i++)
+        {
+            JsonObject frameObj = new JsonObject()
+            {
+                { "name", frames[i].Item1 },
+                { "duration", frames[i].Item2 }
+            };
+            frameArray.Add(frameObj);
+        }
+
+        JsonObject outObj = new JsonObject
+        {
+            { "name", name },
+            { "loops", loops },
+            { "pingpong", pingpong },
+            { "reversed", reversed }
+        };
+        if (atlas != null)
+            outObj.Add("atlas", atlas);
+
+        outObj.Add("frames", frameArray);
+
+        return outObj;
+    }
 }

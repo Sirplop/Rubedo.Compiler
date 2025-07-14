@@ -1,6 +1,7 @@
 ﻿using Rubedo;
 using Rubedo.Compiler;
 using Rubedo.Compiler.Util;
+using SkiaSharp;
 using System.Collections.Generic;
 using System.IO;
 
@@ -110,8 +111,31 @@ namespace Rubedo.Compiler.ContentBuilders.SpriteBuilder
             }
             packerConfig.InputPaths = inputPaths;
 
+            List<(string, SKBitmap)> extraBitmaps = null;
+            if (builder.virtualFileMap.TryGetValue(nameof(SKBitmap), out var virtualMap))
+            {
+                List<VirtualFile<object>> objs = new List<VirtualFile<object>>();
+                foreach (RelativeDirectory dirKey in virtualMap.Keys)
+                {
+                    if (dirKey.IsChildOf(currentDirectory))
+                    {
+                        var virtObjs = virtualMap[dirKey];
+                        for (int i = 0; i < virtObjs.Count; i++)
+                        {
+                            objs.Add(virtObjs[i]);
+                        }
+                    }
+                }
+
+                extraBitmaps = new List<(string, SKBitmap)>();
+                for (int i = 0; i < objs.Count; i++)
+                {
+                    extraBitmaps.Add((objs[i].Name, (SKBitmap)objs[i].Load()));
+                }
+            }
+
             Program.Logger.Info("Generating atlas...");
-            TexturePacker.Generate(packerConfig);
+            TexturePacker.Generate(packerConfig, extraBitmaps);
             Program.Logger.Info("Atlas generated.");
             return ErrorCodes.NONE;
         }

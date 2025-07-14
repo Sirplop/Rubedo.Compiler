@@ -2,6 +2,7 @@
 using System.Text;
 using System.Drawing;
 using Rubedo.Compiler.Util;
+using AsepriteDotNet;
 
 namespace Rubedo.Compiler.ContentBuilders.SpriteBuilder;
 
@@ -20,7 +21,7 @@ public static class TexturePacker
         public bool Trim = true;
     }
 
-    public static void Generate(Config config)
+    public static void Generate(Config config, List<(string, SKBitmap)>? additional = null)
     {
         if (!Lib.Math.IsPowerOf2(config.MaxSize))
             throw new ArgumentException($"MaxSize is not a power of 2! (It's {config.MaxSize})");
@@ -37,6 +38,20 @@ public static class TexturePacker
                 rect = new SKRect(0, 0, texture.Width, texture.Height);
             rects.Add(new SRect(texture, config.InputPaths[i], config.Padding, rect));
         }
+        if (additional != null)
+        {
+            for (int i = 0; i < additional.Count; i++)
+            {
+                SKBitmap texture = additional[i].Item2;
+                SKRect rect;
+                if (config.Trim)
+                    rect = Trim(texture);
+                else
+                    rect = new SKRect(0, 0, texture.Width, texture.Height);
+                rects.Add(new SRect(texture, additional[i].Item1, config.Padding, rect));
+            }
+        }
+
         rects.Sort((a, b) => a.Area.CompareTo(b.Area));
 
         RectPacker packer = new RectPacker(config.MaxSize, config.MaxSize);
