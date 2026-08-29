@@ -81,8 +81,8 @@ namespace Rubedo.Compiler.ContentBuilders.SpriteBuilder
 
             string atlasName = "\\" + name + ".png";
             string mapName = "\\" + name + FileExtensions.ATLAS_MAP;
-            builder.touchedPaths.Add(outputDir.relativePath + atlasName);
-            builder.touchedPaths.Add(outputDir.relativePath + mapName);
+            builder.TouchPath(outputDir.relativePath + atlasName);
+            builder.TouchPath(outputDir.relativePath + mapName);
 
             int updateCode = ShouldUpdate(builder, null, currentDirectory);
 

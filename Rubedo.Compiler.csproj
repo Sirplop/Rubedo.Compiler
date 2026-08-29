@@ -9,8 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\Learninging\Rubedo\Lib\Extensions\Collection.Extensions.cs" Link="Util\Collection.Extensions.cs" />
-    <Compile Include="..\Learninging\Rubedo\Lib\Math.cs" Link="Util\Math.cs" />
+   <Compile Include="..\Learninging\Rubedo\Lib\Math.cs" Link="Util\Math.cs" />
   </ItemGroup>
 
   <ItemGroup>

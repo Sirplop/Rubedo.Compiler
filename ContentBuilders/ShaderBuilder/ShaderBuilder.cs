@@ -57,7 +57,7 @@ public class ShaderBuilder : IBuildFile
                 (PlatformTarget target, string suffix) = ShaderProfiles[p];
 
                 string outputName = $"{baseName}.{suffix}{FileExtensions.COMPILED_SHADER}";
-                builder.touchedPaths.Add(outputDir.relativePath + "\\" + outputName);
+                builder.TouchPath(outputDir.relativePath + "\\" + outputName);
 
                 FileInfo outputFile = new FileInfo(Path.Combine(outputDir.directory.FullName, outputName));
 

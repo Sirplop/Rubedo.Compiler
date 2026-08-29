@@ -59,10 +59,10 @@ public class SpriteAnim : IBuildFile
             if (!contained)
             {
                 string baseName = "\\" + Path.GetFileNameWithoutExtension(file.Name);
-                builder.touchedPaths.Add(outputDir.relativePath + baseName + ".png");
-                builder.touchedPaths.Add(outputDir.relativePath + baseName + FileExtensions.ATLAS_MAP);
+                builder.TouchPath(outputDir.relativePath + baseName + ".png");
+                builder.TouchPath(outputDir.relativePath + baseName + FileExtensions.ATLAS_MAP);
             }
-            builder.touchedPaths.Add(outputDir.relativePath + "\\" + file.Name);
+            builder.TouchPath(outputDir.relativePath + "\\" + file.Name);
 
             int updateCode = ShouldUpdate(builder, new FileInfo[] { file, atlasPath == null ? new FileInfo(outputDir.directory.FullName +
                 "\\" + Path.GetFileNameWithoutExtension(file.Name) + FileExtensions.ATLAS_MAP) : atlasPath }, currentDirectory);

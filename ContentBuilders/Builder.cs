@@ -1,7 +1,6 @@
 ﻿using Rubedo.Compiler.ContentBuilders.ShaderBuilders;
 using Rubedo.Compiler.ContentBuilders.SpriteBuilder;
 using Rubedo.Compiler.Util;
-using Rubedo.Lib.Extensions;
 using System.Diagnostics;
 
 namespace Rubedo.Compiler.ContentBuilders
@@ -88,8 +87,8 @@ namespace Rubedo.Compiler.ContentBuilders
             touchedPaths.Clear();
             virtualFileMap.Clear();
 
-            touchedPaths.Add("Fonts"); //default font in rubedo.
-            touchedPaths.Add("Fonts\\Consolas.ttf"); //default font in rubedo.
+            TouchPath("Fonts"); //default font in rubedo.
+            TouchPath("Fonts\\Consolas.ttf"); //default font in rubedo.
 
             //generate a list of directories, and map them as we go.
             //always guarenteed to view parents before children.
@@ -106,7 +105,7 @@ namespace Rubedo.Compiler.ContentBuilders
                     directories.Add(dir);
                 }
                 RelativeDirectory rel = new RelativeDirectory(info.FullName, SourceDirectory, false);
-                touchedPaths.Add(rel.relativePath);
+                TouchPath(rel.relativePath);
                 foreach (IMapFile map in Mappers)
                 {
                     code = map.Map(this, rel);
@@ -196,7 +195,7 @@ namespace Rubedo.Compiler.ContentBuilders
                     info.directory.Delete(true);
                     continue;
                 }
-                touchedPaths.SwapAndRemove(touchedIndex);
+                SwapAndRemove(touchedPaths, touchedIndex);
 
                 foreach (FileInfo file in info.directory.GetFiles())
                 {
@@ -209,7 +208,7 @@ namespace Rubedo.Compiler.ContentBuilders
                     }
                     else
                     {
-                        touchedPaths.SwapAndRemove(touchedIndex);
+                        SwapAndRemove(touchedPaths, touchedIndex);
                     }
                 }
 
@@ -219,6 +218,30 @@ namespace Rubedo.Compiler.ContentBuilders
                 }
             }
             Program.Logger.Info($"Removed {removed} old {(removed == 1 ? "file" : "files")}.");
+        }
+
+        public void TouchPath(string path)
+        {
+            if (path.StartsWith(".\\"))
+            {
+                touchedPaths.Add(path[2..]);
+            }
+            else
+            {
+                touchedPaths.Add(path);
+            }
+        }
+
+        /// <summary>
+        /// Sets the element at <paramref name="index"/> to the last element in the list, then removes the last element.<br></br>
+        /// This removes the element at the index without needing to move elements around.
+        /// </summary>
+        /// <param name="list">The list</param>
+        /// <param name="index">The index to remove</param>
+        public static void SwapAndRemove<T>(IList<T> list, int index)
+        {
+            list[index] = list[^1];
+            list.RemoveAt(index);
         }
     }
 }

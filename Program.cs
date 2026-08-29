@@ -1,4 +1,6 @@
-﻿using NLog.Config;
+﻿#define DEBUG
+
+using NLog.Config;
 using NLog.Layouts;
 using NLog;
 using Rubedo.Compiler.ContentBuilders;

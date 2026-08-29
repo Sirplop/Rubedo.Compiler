@@ -112,10 +112,10 @@ namespace Rubedo.Compiler.ContentBuilders.SpriteBuilder
                 string baseName = "\\" + Path.GetFileNameWithoutExtension(file.Name);
                 if (!contained)
                 {
-                    builder.touchedPaths.Add(outputDir.relativePath + baseName + ".png");
-                    builder.touchedPaths.Add(outputDir.relativePath + baseName + FileExtensions.ATLAS_MAP);
+                    builder.TouchPath(outputDir.relativePath + baseName + ".png");
+                    builder.TouchPath(outputDir.relativePath + baseName + FileExtensions.ATLAS_MAP);
                 }
-                builder.touchedPaths.Add(outputDir.relativePath + baseName + FileExtensions.SPRITE_ANIM);
+                builder.TouchPath(outputDir.relativePath + baseName + FileExtensions.SPRITE_ANIM);
 
                 //ShouldUpdate sets the currentloadedfile, so we don't have to do another load.
                 int updateCode = ShouldUpdate(builder, new FileInfo[] { file, atlasPath == null ? new FileInfo(outputDir.directory.FullName +
