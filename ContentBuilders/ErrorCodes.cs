@@ -10,5 +10,9 @@
         public const int MULTIPLE_MAKEATLAS = 4;
         public const int SUBDIRECTORY_MAKEATLAS = 5;
         public const int MISSING_FILE = 6;
+
+        public const int SHADER_COMPILE_FAILED = 7;
+        public const int MGFXC_NOT_FOUND = 8;
+
     }
 }

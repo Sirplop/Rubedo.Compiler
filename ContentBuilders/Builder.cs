@@ -1,4 +1,5 @@
-﻿using Rubedo.Compiler.ContentBuilders.SpriteBuilder;
+﻿using Rubedo.Compiler.ContentBuilders.ShaderBuilders;
+using Rubedo.Compiler.ContentBuilders.SpriteBuilder;
 using Rubedo.Compiler.Util;
 using Rubedo.Lib.Extensions;
 using System.Diagnostics;
@@ -38,7 +39,8 @@ namespace Rubedo.Compiler.ContentBuilders
         {
             new MakeAtlas(),
             new SpriteAnim(),
-            new AsepriteLoader()
+            new AsepriteLoader(),
+            new ShaderBuilder()
         };
 
         public Builder(string source, string target, string textures)
@@ -165,8 +167,8 @@ namespace Rubedo.Compiler.ContentBuilders
                     {
                         file.CopyTo(output.FullName, true);
                         included++;
-                    } 
-                    else 
+                    }
+                    else
                         excluded++;
                 }
             }
