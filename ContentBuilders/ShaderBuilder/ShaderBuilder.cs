@@ -1,33 +1,43 @@
 ﻿using Rubedo.Compiler.Util;
-using System.Diagnostics;
+using ShadowDusk.Core;
 
-namespace Rubedo.Compiler.ContentBuilders.ShaderBuilders;
+namespace Rubedo.Compiler.ContentBuilders.ShaderBuilder;
 
 /// <summary>
-/// Compiles .fx shader source files into .mgfxo binaries using the MonoGame Effect
-/// Compiler (mgfxc), once per configured <see cref="ShaderProfiles"/> entry.
-/// <br/><br/>
-/// Requires the mgfxc dotnet tool to be available on PATH:
-/// <c>dotnet tool install -g dotnet-mgfxc</c>
+/// Compiles .fx shader source files into .mgfx binaries in-process, using ShadowDusk
+/// (https://github.com/kaltinril/ShadowDusk) once per configured <see cref="ShaderProfiles"/>
+/// NuGet package.
 /// </summary>
 public class ShaderBuilder : IBuildFile
-{   
+{
     /// <summary>
-    /// The set of mgfxc profiles to compile every shader for, and the filename suffix
-    /// used to disambiguate each profile's output on disk.
+    /// The set of platform targets to compile every shader for, and the filename suffix
+    /// used to disambiguate each target's output on disk.
     /// </summary>
-    public static readonly (string Profile, string Suffix)[] ShaderProfiles = new[]
+    public static readonly (PlatformTarget Target, string Suffix)[] ShaderProfiles = new[]
     {
-        ("OpenGL", "ogl"),
-        ("DirectX_11", "dx11"),
+        (PlatformTarget.OpenGL, "ogl"),
+        (PlatformTarget.DirectX, "dx11"),
     };
+
+    //Reused across every shader/profile in the build; safe to share, and avoids
+    //re-touching the native compiler modules per-file.
+    private readonly ShadowDusk.Compiler.EffectCompiler _compiler = new();
 
     public int BuildMap(Builder builder, RelativeDirectory currentDirectory)
     {
         //shader include files (.fxh) are compile-time only; never copy them to output.
         FileInfo[] includes = currentDirectory.directory.GetFiles($"*{FileExtensions.SHADER_INCLUDE}");
+        long newestIncludeWriteTimeUtc = 0;
         for (int i = 0; i < includes.Length; i++)
+        {
             builder.excludedFiles.Add(includes[i].FullName);
+            if (includes[i].LastWriteTimeUtc.Ticks > newestIncludeWriteTimeUtc)
+                newestIncludeWriteTimeUtc = includes[i].LastWriteTimeUtc.Ticks;
+        }
+        //NOTE: this only catches .fxh files that live alongside the .fx that includes them.
+        //A shared include pulled in from a different directory won't trigger a rebuild on
+        //its own - only the .fx file's own timestamp is guaranteed to be tracked correctly.
 
         FileInfo[] shaders = currentDirectory.directory.GetFiles($"*{FileExtensions.SHADER}");
         if (shaders.Length == 0)
@@ -44,17 +54,17 @@ public class ShaderBuilder : IBuildFile
 
             for (int p = 0; p < ShaderProfiles.Length; p++)
             {
-                (string profile, string suffix) = ShaderProfiles[p];
+                (PlatformTarget target, string suffix) = ShaderProfiles[p];
 
                 string outputName = $"{baseName}.{suffix}{FileExtensions.COMPILED_SHADER}";
                 builder.touchedPaths.Add(outputDir.relativePath + "\\" + outputName);
 
                 FileInfo outputFile = new FileInfo(Path.Combine(outputDir.directory.FullName, outputName));
 
-                int updateCode = ShouldUpdate(builder, new FileInfo[] { file, outputFile }, currentDirectory);
+                int updateCode = ShouldUpdate(builder, new FileInfo[] { file, outputFile }, currentDirectory, newestIncludeWriteTimeUtc);
                 if (updateCode == ErrorCodes.SKIPPED)
                 {
-                    Program.Logger.Info($"Shader '{currentDirectory.relativePath}\\{file.Name}' [{profile}] already up-to-date.");
+                    Program.Logger.Info($"Shader '{currentDirectory.relativePath}\\{file.Name}' [{target}] already up-to-date.");
                     continue;
                 }
                 else if (updateCode > ErrorCodes.END_OF_NON_ERRORS)
@@ -62,8 +72,8 @@ public class ShaderBuilder : IBuildFile
                     return updateCode;
                 }
 
-                Program.Logger.Info($"Compiling shader: {currentDirectory.relativePath}\\{file.Name} [{profile}]");
-                int code = Compile(file.FullName, outputFile.FullName, profile);
+                Program.Logger.Info($"Compiling shader: {currentDirectory.relativePath}\\{file.Name} [{target}]");
+                int code = Compile(file.FullName, outputFile.FullName, target);
                 if (code != ErrorCodes.NONE)
                     return code;
 
@@ -74,66 +84,73 @@ public class ShaderBuilder : IBuildFile
     }
 
     /// <summary>
-    /// Shells out to mgfxc to compile a single .fx file for a single profile.
+    /// Compiles a single .fx file for a single target via ShadowDusk's EffectCompiler.
     /// </summary>
-    private int Compile(string sourcePath, string outputPath, string profile)
+    private int Compile(string sourcePath, string outputPath, PlatformTarget target)
     {
-        ProcessStartInfo psi = new ProcessStartInfo
+        string source;
+        try
         {
-            FileName = "mgfxc",
-            Arguments = $"\"{sourcePath}\" \"{outputPath}\" /Profile:{profile}",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
+            source = File.ReadAllText(sourcePath);
+        }
+        catch (IOException e)
+        {
+            Program.Logger.Error($"Could not read shader source '{sourcePath}': {e.Message}");
+            return ErrorCodes.MISSING_FILE;
+        }
+
+        CompilerOptions options = new CompilerOptions
+        {
+            Target = target,
+            //Relative #include directives resolve against this file's directory automatically.
+            SourceFileName = sourcePath,
         };
+
+        Result<CompiledShader, ShaderError[]> result = _compiler.Compile(source, options);
+
+        if (result.IsFailure)
+        {
+            Program.Logger.Error($"Shader compilation failed for '{sourcePath}' [{target}]:");
+            foreach (ShaderError error in result.Error)
+                Program.Logger.Error("  " + error.FxcFormattedMessage);
+            return ErrorCodes.SHADER_COMPILE_FAILED;
+        }
 
         try
         {
-            using Process? process = Process.Start(psi);
-            if (process == null)
-            {
-                Program.Logger.Error($"Failed to start mgfxc process for '{sourcePath}'.");
-                return ErrorCodes.SHADER_COMPILE_FAILED;
-            }
-
-            string stdout = process.StandardOutput.ReadToEnd();
-            string stderr = process.StandardError.ReadToEnd();
-            process.WaitForExit();
-
-            if (process.ExitCode != 0)
-            {
-                Program.Logger.Error($"Shader compilation failed for '{sourcePath}' [{profile}]:");
-                if (!string.IsNullOrWhiteSpace(stdout))
-                    Program.Logger.Error(stdout.Trim());
-                if (!string.IsNullOrWhiteSpace(stderr))
-                    Program.Logger.Error(stderr.Trim());
-                return ErrorCodes.SHADER_COMPILE_FAILED;
-            }
-
-            if (!string.IsNullOrWhiteSpace(stdout))
-                Program.Logger.Debug(stdout.Trim());
-
-            return ErrorCodes.NONE;
+            File.WriteAllBytes(outputPath, result.Value.Data);
         }
-        catch (System.ComponentModel.Win32Exception e)
+        catch (IOException e)
         {
-            Program.Logger.Error("Could not find 'mgfxc' on PATH. Install it with: dotnet tool install -g dotnet-mgfxc");
-            Program.Logger.Error(e.Message);
-            return ErrorCodes.MGFXC_NOT_FOUND;
+            Program.Logger.Error($"Could not write compiled shader '{outputPath}': {e.Message}");
+            return ErrorCodes.SHADER_COMPILE_FAILED;
         }
+
+        foreach (ShaderError warning in result.Value.Warnings)
+            Program.Logger.Warn("  " + warning.FxcFormattedMessage);
+
+        return ErrorCodes.NONE;
     }
 
     /// <summary>
     /// relevantFiles[0] = source .fx file, relevantFiles[1] = this profile's compiled output.
     /// </summary>
     public int ShouldUpdate(Builder builder, FileInfo[] relevantFiles, RelativeDirectory currentDirectory)
+        => ShouldUpdate(builder, relevantFiles, currentDirectory, 0);
+
+    private int ShouldUpdate(Builder builder, FileInfo[] relevantFiles, RelativeDirectory currentDirectory, long newestIncludeWriteTimeUtc)
     {
         FileInfo source = relevantFiles[0];
         FileInfo output = relevantFiles[1];
 
-        if (!output.Exists || output.LastWriteTimeUtc < source.LastWriteTimeUtc)
-            return ErrorCodes.NONE; //needs (re)compiling.
+        if (!output.Exists)
+            return ErrorCodes.NONE; //needs compiling.
+
+        if (output.LastWriteTimeUtc < source.LastWriteTimeUtc)
+            return ErrorCodes.NONE; //source changed since last compile.
+
+        if (newestIncludeWriteTimeUtc > 0 && output.LastWriteTimeUtc.Ticks < newestIncludeWriteTimeUtc)
+            return ErrorCodes.NONE; //a sibling .fxh changed since last compile.
 
         return ErrorCodes.SKIPPED;
     }
