@@ -1,7 +1,7 @@
 ﻿using Rubedo.Compiler.Util;
 using ShadowDusk.Core;
 
-namespace Rubedo.Compiler.ContentBuilders.ShaderBuilder;
+namespace Rubedo.Compiler.ContentBuilders.ShaderBuilders;
 
 /// <summary>
 /// Compiles .fx shader source files into .mgfx binaries in-process, using ShadowDusk
