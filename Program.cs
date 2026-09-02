@@ -1,4 +1,4 @@
-﻿#define DEBUG
+﻿//#define DEBUG
 
 using NLog.Config;
 using NLog.Layouts;
